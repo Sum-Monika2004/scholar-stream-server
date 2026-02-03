@@ -2,13 +2,25 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const admin = require("firebase-admin");
+// const serviceAccount = require("./serviceAccountKey.json");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const port = process.env.PORT || 3000;
 
 // middleware
 app.use(express.json());
 app.use(cors());
+
+const decoded = Buffer.from(
+  process.env.FIREBASE_SERVICE_KEY,
+  "base64",
+).toString("utf8");
+const serviceAccount = JSON.parse(decoded);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ogeopwy.mongodb.net/?appName=Cluster0`;
 
@@ -51,6 +63,7 @@ async function run() {
     const scholarshipsCollection = db.collection("scholarships");
 
     // scholarships api
+
     app.get("/all-scholarships", async (req, res) => {
       const result = await scholarshipsCollection.find().toArray();
       console.log(result);
@@ -71,7 +84,9 @@ async function run() {
         result,
       });
     });
+
     //recommended sch
+
     app.get("/recommended-sch", async (req, res) => {
       const result = await scholarshipsCollection
         .find()
@@ -85,7 +100,24 @@ async function run() {
       res.send(result);
     });
 
+    // add scholarship
+
+    app.post("/all-scholarships", verifyToken, async (req, res) => {
+      const scholarship = req.body;
+
+      // scholarship.scholarshipPostDate = new Date();
+
+      const result = await scholarshipsCollection.insertOne(scholarship);
+
+      res.send({
+        success: true,
+        message: "Scholarship added successfully",
+        insertedId: result.insertedId,
+      });
+    });
+
     // scholarship search
+
     app.get("/search", async (req, res) => {
       const search = req.query.search || "";
       const query = {
@@ -99,9 +131,25 @@ async function run() {
       res.send(result);
     });
 
+    //delete
+
+    app.delete("/all-scholarships/:id", async (req, res) => {
+      const { id } = req.params;
+      //    const objectId = new ObjectId(id)
+      //    const filter = {_id: objectId}
+      const result = await scholarshipsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
+      "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
   }
